@@ -46,6 +46,12 @@ LOG_LEVELS = click.Choice(
     case_sensitive=False,
 )
 
+class _NoWindowsGlobExpansionGroup(click.Group):
+  """Click group that disables Windows glob expansion for CLI arguments."""
+
+  def main(self, *args, **kwargs):
+    kwargs.setdefault("windows_expand_args", False)
+    return super().main(*args, **kwargs)
 
 def _logging_options():
   """Decorator to add logging options to click commands."""
@@ -235,7 +241,10 @@ def _warn_if_with_ui(with_ui: bool) -> None:
     click.secho(f"WARNING: {_ADK_WEB_WARNING}", fg="yellow", err=True)
 
 
-@click.group(context_settings={"max_content_width": 240})
+@click.group(
+    cls=_NoWindowsGlobExpansionGroup,
+    context_settings={"max_content_width": 240},
+)
 @click.version_option(version.__version__)
 def main():
   """Agent Development Kit CLI tools."""

@@ -46,12 +46,14 @@ LOG_LEVELS = click.Choice(
     case_sensitive=False,
 )
 
+
 class _NoWindowsGlobExpansionGroup(click.Group):
   """Click group that disables Windows glob expansion for CLI arguments."""
 
   def main(self, *args, **kwargs):
     kwargs.setdefault("windows_expand_args", False)
     return super().main(*args, **kwargs)
+
 
 def _logging_options():
   """Decorator to add logging options to click commands."""

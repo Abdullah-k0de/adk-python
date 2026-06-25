@@ -26,6 +26,8 @@ from pathlib import Path
 import sys
 import tempfile
 import textwrap
+from typing import Any
+from typing import cast
 
 import click
 from click.core import ParameterSource
@@ -46,11 +48,13 @@ LOG_LEVELS = click.Choice(
     case_sensitive=False,
 )
 
+_ClickGroup = cast(type[Any], click.Group)
 
-class _NoWindowsGlobExpansionGroup(click.Group):
+
+class _NoWindowsGlobExpansionGroup(_ClickGroup):
   """Click group that disables Windows glob expansion for CLI arguments."""
 
-  def main(self, *args, **kwargs):
+  def main(self, *args: Any, **kwargs: Any) -> Any:
     kwargs.setdefault("windows_expand_args", False)
     return super().main(*args, **kwargs)
 
@@ -2011,6 +2015,7 @@ def cli_api_server(
     "cloud_run",
     context_settings={
         "allow_extra_args": True,
+        "allow_interspersed_args": False,
     },
 )
 @click.option(
@@ -2187,7 +2192,34 @@ def cli_deploy_cloud_run(
 
   _warn_if_with_ui(with_ui)
 
-  gcloud_args = ctx.args
+  # Parse arguments to separate gcloud args (after --) from regular args
+  gcloud_args = []
+  if "--" in ctx.args:
+    separator_index = ctx.args.index("--")
+    gcloud_args = ctx.args[separator_index + 1 :]
+    regular_args = ctx.args[:separator_index]
+
+    # If there are regular args before --, that's an error
+    if regular_args:
+      click.secho(
+          "Error: Unexpected arguments after agent path and before '--':"
+          f" {' '.join(regular_args)}. \nOnly arguments after '--' are passed"
+          " to gcloud.",
+          fg="red",
+          err=True,
+      )
+      ctx.exit(2)
+  else:
+    # No -- separator, treat all args as an error to enforce the new behavior
+    if ctx.args:
+      click.secho(
+          f"Error: Unexpected arguments: {' '.join(ctx.args)}. \nUse '--' to"
+          " separate gcloud arguments, e.g.: adk deploy cloud_run [options]"
+          " agent_path -- --min-instances=2",
+          fg="red",
+          err=True,
+      )
+      ctx.exit(2)
 
   try:
     from . import cli_deploy

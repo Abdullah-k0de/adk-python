@@ -12,4 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .cli_tools_click import main
+from typing import Any
+
+from .cli_tools_click import main as _main
+
+
+def main(args: Any = None, **kwargs: Any) -> Any:
+  """Package entry point that disables Windows glob expansion for all CLI commands."""
+
+  kwargs.setdefault("windows_expand_args", False)
+  return _main.main(args=args, **kwargs)

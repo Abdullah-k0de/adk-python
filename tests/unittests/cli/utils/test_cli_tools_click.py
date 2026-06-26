@@ -91,8 +91,9 @@ def _mute_click(request, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_main_disables_click_windows_glob_expansion() -> None:
   """Verifies the ADK CLI disables Click's Windows glob expansion."""
   with mock.patch.object(click.Group, "main", return_value=None) as mock_main:
-    cli_tools_click.main.main(args=["web", ".", "--allow_origins", "*"])
+    from google.adk.cli import main
 
+    main(args=["web", ".", "--allow_origins", "*"])
   assert mock_main.call_args.kwargs["windows_expand_args"] is False
 
 

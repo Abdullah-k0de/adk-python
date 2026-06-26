@@ -26,8 +26,7 @@ from pathlib import Path
 import sys
 import tempfile
 import textwrap
-from typing import Any
-from typing import cast
+from typing import Optional
 
 import click
 from click.core import ParameterSource
@@ -47,16 +46,6 @@ LOG_LEVELS = click.Choice(
     ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     case_sensitive=False,
 )
-
-_ClickGroup = cast(type[Any], click.Group)
-
-
-class _NoWindowsGlobExpansionGroup(_ClickGroup):
-  """Click group that disables Windows glob expansion for CLI arguments."""
-
-  def main(self, *args: Any, **kwargs: Any) -> Any:
-    kwargs.setdefault("windows_expand_args", False)
-    return super().main(*args, **kwargs)
 
 
 def _logging_options():
@@ -247,10 +236,7 @@ def _warn_if_with_ui(with_ui: bool) -> None:
     click.secho(f"WARNING: {_ADK_WEB_WARNING}", fg="yellow", err=True)
 
 
-@click.group(
-    cls=_NoWindowsGlobExpansionGroup,
-    context_settings={"max_content_width": 240},
-)
+@click.group(context_settings={"max_content_width": 240})
 @click.version_option(version.__version__)
 def main():
   """Agent Development Kit CLI tools."""
@@ -1159,7 +1145,7 @@ def cli_eval(
             inference_requests=inference_requests, eval_service=eval_service
         )
     )
-    eval_results = asyncio.run(
+    eval_results: list[EvalCaseResult] = asyncio.run(
         _collect_eval_results(
             inference_results=inference_results,
             eval_service=eval_service,
@@ -1175,7 +1161,6 @@ def cli_eval(
   eval_run_summary = {}
 
   for eval_result in eval_results:
-    eval_result: EvalCaseResult
 
     if eval_result.eval_set_id not in eval_run_summary:
       eval_run_summary[eval_result.eval_set_id] = [0, 0]
@@ -1193,7 +1178,6 @@ def cli_eval(
 
   if print_detailed_results:
     for eval_result in eval_results:
-      eval_result: EvalCaseResult
       click.echo(
           "********************************************************************"
       )
@@ -2015,7 +1999,6 @@ def cli_api_server(
     "cloud_run",
     context_settings={
         "allow_extra_args": True,
-        "allow_interspersed_args": False,
     },
 )
 @click.option(
@@ -2192,34 +2175,7 @@ def cli_deploy_cloud_run(
 
   _warn_if_with_ui(with_ui)
 
-  # Parse arguments to separate gcloud args (after --) from regular args
-  gcloud_args = []
-  if "--" in ctx.args:
-    separator_index = ctx.args.index("--")
-    gcloud_args = ctx.args[separator_index + 1 :]
-    regular_args = ctx.args[:separator_index]
-
-    # If there are regular args before --, that's an error
-    if regular_args:
-      click.secho(
-          "Error: Unexpected arguments after agent path and before '--':"
-          f" {' '.join(regular_args)}. \nOnly arguments after '--' are passed"
-          " to gcloud.",
-          fg="red",
-          err=True,
-      )
-      ctx.exit(2)
-  else:
-    # No -- separator, treat all args as an error to enforce the new behavior
-    if ctx.args:
-      click.secho(
-          f"Error: Unexpected arguments: {' '.join(ctx.args)}. \nUse '--' to"
-          " separate gcloud arguments, e.g.: adk deploy cloud_run [options]"
-          " agent_path -- --min-instances=2",
-          fg="red",
-          err=True,
-      )
-      ctx.exit(2)
+  gcloud_args = ctx.args
 
   try:
     from . import cli_deploy
